@@ -66,7 +66,7 @@ segment .text
 	call geteip
 geteip:
 	pop ebx
-	int3
+	
 	; check if WOW64Reserved is null
 	mov eax, [fs:0xc0]
 	cmp eax, 0
