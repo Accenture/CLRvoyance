@@ -2,7 +2,7 @@
 
 CLRvoyance is a shellcode kit that supports bootstrapping managed assemblies into unmanaged (or managed) processes. It provides three different implementations of position independent shellcode for CLR hosting, as well as a generator script for quickly embedding a managed assembly in position independent shellcode.
 
-Please see the release blogpost here for technical information.
+Please see the release blogpost [here](https://www.accenture.com/us-en/blogs/cyber-defense/clrvoyance-loading-managed-code-into-unmanaged-processes) for technical information.
 
 # Usage
 

